@@ -28,6 +28,10 @@
         /* Animations */
         @keyframes flow { to { stroke-dashoffset: -20; } }
         .connection-anim { animation: flow 1s linear infinite; }
+        
+        /* Modal Animation */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
     </style>
 </head>
 <body>
@@ -38,40 +42,47 @@
 
         const App = () => {
             const [data, setData] = useState(null);
-            const [nodes, setNodes] = useState([]); // { id, x, y, defId, instanceData }
-            const [connections, setConnections] = useState([]); // { id, fromNode, fromSocket, toNode, toSocket }
+            const [loadError, setLoadError] = useState(false);
+            const [nodes, setNodes] = useState([]); 
+            const [connections, setConnections] = useState([]); 
             
             // Interaction State
             const [pan, setPan] = useState({ x: 0, y: 0 });
             const [zoom, setZoom] = useState(1);
             const [dragNode, setDragNode] = useState(null); 
-            const [drawLink, setDrawLink] = useState(null); // { fromNode, fromSocket, currentX, currentY }
-            const [hoverSocket, setHoverSocket] = useState(null); // { nodeId, socketId }
+            const [drawLink, setDrawLink] = useState(null); 
 
             const canvasRef = useRef(null);
             const wrapperRef = useRef(null);
 
-            // 1. Initialize: Load Tempest.json
+            // 1. Initialize: Load Tempest.json from ./characters/
             useEffect(() => {
-                fetch('tempest.json')
-                    .then(res => res.json())
+                fetch('./characters/tempest.json')
+                    .then(res => {
+                        if (!res.ok) throw new Error("File not found");
+                        return res.json();
+                    })
                     .then(json => initializeCharacter(json))
-                    .catch(err => console.log("Auto-load failed, waiting for user upload"));
+                    .catch(err => {
+                        console.error("Auto-load failed:", err);
+                        setLoadError(true);
+                    });
             }, []);
 
             const initializeCharacter = (json) => {
                 setData(json);
+                setLoadError(false);
                 // Create Root Node (The Character)
                 const rootNode = {
                     id: "root_char",
                     x: window.innerWidth / 2 - 150,
-                    y: window.innerHeight / 2 - 200,
+                    y: window.innerHeight / 2 - 250,
                     isRoot: true,
                     data: {
                         name: json.class_info.name,
                         icon: "fa-user-astronaut",
                         stats: { "Base HP": json.class_info.base_hp, "Base Dmg": json.class_info.base_damage },
-                        sockets: json.root_node_config.outputs // Root only has outputs (sockets to plug items INTO)
+                        sockets: json.root_node_config.outputs 
                     }
                 };
                 setNodes([rootNode]);
@@ -100,7 +111,7 @@
             // 4. Handlers: Link Drawing
             const handleSocketPointerDown = (e, nodeId, socketId, side, typeAccepts) => {
                 e.stopPropagation();
-                e.preventDefault(); // Prevent text selection
+                e.preventDefault(); 
                 const coords = getCanvasCoords(e);
                 setDrawLink({ 
                     fromNode: nodeId, 
@@ -117,13 +128,9 @@
             const handleSocketPointerUp = (e, nodeId, socketId, nodeType) => {
                 e.stopPropagation();
                 if (drawLink) {
-                    // Validate Connection
-                    if (drawLink.fromNode === nodeId) return; // Can't link to self
+                    if (drawLink.fromNode === nodeId) return; 
                     
-                    // Check compatibility
-                    // The 'accepts' array in the Root Node definition controls what plugs in
                     let isValid = false;
-                    
                     if (drawLink.accepts && drawLink.accepts.includes(nodeType)) isValid = true;
                     
                     if (isValid) {
@@ -134,7 +141,7 @@
                                 fromNode: drawLink.fromNode,
                                 fromSocket: drawLink.fromSocket,
                                 toNode: nodeId,
-                                toSocket: "input_main" // Simplified: Items have one main input point conceptually
+                                toSocket: "input_main" 
                             }
                         ]);
                     }
@@ -144,6 +151,8 @@
 
             // 5. Global Pointer Move
             const handlePointerMove = (e) => {
+                if (!dragNode && !drawLink) return;
+                
                 const coords = getCanvasCoords(e);
 
                 if (dragNode) {
@@ -162,12 +171,12 @@
                 setDrawLink(null);
             };
 
-            // 6. Adding Items from Sidebar
+            // 6. Adding Items
             const addItem = (defId) => {
                 const def = data.library.find(i => i.id === defId);
                 const newNode = {
                     id: Math.random().toString(36).substr(2, 9),
-                    x: (-pan.x + 100) / zoom, // Drop near top left of visible area
+                    x: (-pan.x + 100) / zoom,
                     y: (-pan.y + 100) / zoom,
                     defId: defId,
                     data: {
@@ -175,52 +184,46 @@
                         icon: def.icon,
                         stats: def.stats,
                         type: def.type,
-                        sockets: def.sockets || [] // Items might have gem sockets
+                        rarity: def.rarity,
+                        effect: def.effect,
+                        sockets: def.sockets || [] 
                     }
                 };
                 setNodes(prev => [...prev, newNode]);
             };
 
-            // 7. Math for Splines
+            // 7. Render Splines
             const calculatePath = (x1, y1, x2, y2, side1) => {
-                // Bezier Control Point Offsets
                 const dist = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
                 const offset = Math.min(dist * 0.5, 150);
                 
                 let cp1x = x1, cp1y = y1;
                 
-                // Directional pulls based on side
                 if (side1 === 'left') cp1x -= offset;
                 if (side1 === 'right') cp1x += offset;
                 if (side1 === 'bottom') cp1y += offset;
                 if (side1 === 'top') cp1y -= offset;
 
-                // Target is usually an item, let's assume items connect from center or appropriate side
-                // For smoother visuals, if target is to the right, pull target left
                 let cp2x = x2, cp2y = y2;
-                if (x2 > x1) cp2x -= offset; else cp2x += offset;
+                // Items connect from top generally
+                cp2y -= offset; 
 
                 return `M ${x1} ${y1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x2} ${y2}`;
             };
 
-            // Get absolute coordinates of a socket
-            const getSocketPos = (node, socketId, side, index, total) => {
-                const width = 256; // w-64
-                const height = node.isRoot ? 400 : 120; // h-auto
+            const getSocketPos = (node, socketId, side, index) => {
+                const width = 256; 
+                const height = node.isRoot ? 400 : 120;
                 
-                // Approximation of socket DOM positions relative to node x,y
                 let sx = node.x;
                 let sy = node.y;
 
                 if (node.isRoot) {
-                    // Custom mapping for Root Node visual layout
                     if (side === 'left') { sx += 0; sy += 80 + (index * 50); }
                     if (side === 'right') { sx += width; sy += 80 + (index * 50); }
                     if (side === 'bottom') { sx += width/2; sy += height - 20; }
                 } else {
-                    // Items have a single "Input" usually at top or center
                     if (socketId === 'input_main') { sx += width/2; sy += 0; }
-                    // Gem sockets
                     else { sx += width/2; sy += height; } 
                 }
                 return { x: sx, y: sy };
@@ -231,14 +234,32 @@
             if (!data) return (
                 <div className="w-screen h-screen flex items-center justify-center flex-col bg-slate-900 text-slate-300">
                     <h1 className="text-3xl font-bold mb-4 text-cyan-400">Tempest Builder</h1>
-                    <div className="p-8 border-2 border-dashed border-slate-600 rounded-xl bg-slate-800">
-                        <p className="mb-4">Drag 'tempest.json' here or click to load.</p>
-                        <input type="file" onChange={(e) => {
-                            const f = e.target.files[0];
-                            const r = new FileReader();
-                            r.onload = (evt) => initializeCharacter(JSON.parse(evt.target.result));
-                            r.readAsText(f);
-                        }} />
+                    <div className="p-8 border-2 border-dashed border-slate-600 rounded-xl bg-slate-800 text-center max-w-md">
+                        {loadError ? (
+                            <div className="text-red-400 mb-4">
+                                <i className="fas fa-exclamation-triangle text-2xl mb-2 block"></i>
+                                Could not load <code>./characters/tempest.json</code>
+                            </div>
+                        ) : (
+                            <div className="text-cyan-400 mb-4">
+                                <i className="fas fa-spinner fa-spin text-2xl mb-2 block"></i>
+                                Loading Character Data...
+                            </div>
+                        )}
+                        <p className="mb-4 text-sm text-slate-400">
+                            Please ensure the file exists or run on a local server. Alternatively, upload manually:
+                        </p>
+                        <label className="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded cursor-pointer transition">
+                            Select JSON File
+                            <input type="file" className="hidden" onChange={(e) => {
+                                const f = e.target.files[0];
+                                if(f) {
+                                    const r = new FileReader();
+                                    r.onload = (evt) => initializeCharacter(JSON.parse(evt.target.result));
+                                    r.readAsText(f);
+                                }
+                            }} />
+                        </label>
                     </div>
                 </div>
             );
@@ -249,7 +270,7 @@
                     <div className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col z-20 shadow-2xl shrink-0">
                         <div className="p-4 bg-slate-950 border-b border-slate-800">
                             <h2 className="text-xl font-bold text-cyan-500 uppercase tracking-widest">{data.class_info.name}</h2>
-                            <p className="text-xs text-slate-500">Node Builder v2.0</p>
+                            <p className="text-xs text-slate-500">Path: ./characters/tempest.json</p>
                         </div>
                         <div className="flex-1 overflow-y-auto p-2 space-y-4">
                             {['item', 'skill', 'gem', 'paragon'].map(cat => {
@@ -257,18 +278,18 @@
                                 if(!items.length) return null;
                                 return (
                                     <div key={cat}>
-                                        <h3 className="text-xs font-bold text-slate-400 uppercase mb-2 pl-2">{cat}s</h3>
+                                        <h3 className="text-xs font-bold text-slate-400 uppercase mb-2 pl-2 border-b border-slate-800 pb-1">{cat}s</h3>
                                         <div className="grid grid-cols-1 gap-2">
                                             {items.map(item => (
                                                 <div 
                                                     key={item.id}
-                                                    className="sidebar-item flex items-center gap-3 p-2 rounded bg-slate-800 border border-slate-700 hover:border-cyan-500 cursor-pointer transition select-none"
+                                                    className="sidebar-item flex items-center gap-3 p-2 rounded bg-slate-800 border border-slate-700 hover:border-cyan-500 cursor-pointer transition select-none group"
                                                     onPointerDown={() => addItem(item.id)}
                                                 >
-                                                    <div className="w-8 h-8 rounded bg-slate-900 flex items-center justify-center text-slate-400">
+                                                    <div className="w-8 h-8 rounded bg-slate-950 flex items-center justify-center text-slate-400 group-hover:text-cyan-400 border border-slate-800">
                                                         <i className={`fas ${item.icon}`}></i>
                                                     </div>
-                                                    <div className="text-sm font-medium text-slate-200">{item.name}</div>
+                                                    <div className="text-sm font-medium text-slate-300 group-hover:text-white truncate">{item.name}</div>
                                                 </div>
                                             ))}
                                         </div>
@@ -285,7 +306,6 @@
                         onPointerMove={handlePointerMove}
                         onPointerUp={handlePointerUp}
                         onPointerLeave={handlePointerUp}
-                        onPointerDown={() => { /* Implement Pan logic here if needed */ }}
                     >
                         {/* Background Grid */}
                         <div 
@@ -308,31 +328,28 @@
                                     const toN = nodes.find(n => n.id === conn.toNode);
                                     if(!fromN || !toN) return null;
 
-                                    // Find socket config for Root to get precise position
                                     let side = 'right';
                                     let idx = 0;
                                     if (fromN.isRoot) {
                                         const s = fromN.data.sockets.find(s => s.id === conn.fromSocket);
                                         side = s?.side || 'right';
-                                        // Calculate visual index for spacing
                                         const brothers = fromN.data.sockets.filter(sk => sk.side === side);
                                         idx = brothers.findIndex(sk => sk.id === conn.fromSocket);
                                     }
 
                                     const p1 = getSocketPos(fromN, conn.fromSocket, side, idx);
-                                    const p2 = getSocketPos(toN, conn.toSocket, 'top', 0); // Items input is top/center
+                                    const p2 = getSocketPos(toN, conn.toSocket, 'top', 0); 
 
                                     return (
                                         <path 
                                             key={conn.id}
                                             d={calculatePath(p1.x, p1.y, p2.x, p2.y, side)}
-                                            className="spline stroke-slate-500 pointer-events-auto"
+                                            className="spline stroke-slate-600 pointer-events-auto"
                                             onDoubleClick={() => setConnections(prev => prev.filter(c => c.id !== conn.id))}
                                         />
                                     );
                                 })}
 
-                                {/* Active Draw Link */}
                                 {drawLink && (
                                     <path 
                                         d={calculatePath(drawLink.startX, drawLink.startY, drawLink.currX, drawLink.currY, drawLink.side)}
@@ -346,7 +363,7 @@
                             {nodes.map(node => (
                                 <div 
                                     key={node.id}
-                                    className={`absolute w-64 bg-slate-900/95 backdrop-blur rounded-lg border-2 shadow-2xl flex flex-col node-card ${node.isRoot ? 'h-[500px] border-cyan-500/50' : `h-auto ${node.data.type === 'gem_legendary' ? 'border-purple-500' : 'rarity-' + (node.data.rarity || 'common')}`}`}
+                                    className={`absolute w-64 bg-slate-900/95 backdrop-blur-md rounded-lg border-2 shadow-2xl flex flex-col node-card fade-in ${node.isRoot ? 'h-[550px] border-cyan-500/50' : `h-auto ${node.data.type === 'gem_legendary' ? 'border-purple-500' : 'rarity-' + (node.data.rarity || 'common')}`}`}
                                     style={{ 
                                         left: node.x, top: node.y,
                                         zIndex: dragNode?.id === node.id ? 100 : 10
@@ -361,7 +378,7 @@
                                             </div>
                                             <div>
                                                 <div className="font-bold text-sm text-slate-100 leading-tight">{node.data.name}</div>
-                                                {!node.isRoot && <div className="text-[10px] uppercase text-slate-500">{node.data.type}</div>}
+                                                {!node.isRoot && <div className="text-[10px] uppercase text-slate-500 tracking-wide">{node.data.type.replace('_', ' ')}</div>}
                                             </div>
                                         </div>
                                     </div>
@@ -375,67 +392,46 @@
                                             </div>
                                         ))}
                                         {node.data.effect && (
-                                            <div className="mt-2 text-[11px] text-yellow-100/80 italic leading-snug bg-yellow-900/10 p-2 rounded border border-yellow-500/10">
+                                            <div className="mt-2 text-[11px] text-amber-200/90 italic leading-snug bg-amber-900/20 p-2 rounded border border-amber-500/20">
                                                 "{node.data.effect}"
                                             </div>
                                         )}
                                     </div>
 
-                                    {/* Sockets (Root Specific) */}
+                                    {/* Root Sockets */}
                                     {node.isRoot && (
                                         <>
-                                            {/* Left Sockets */}
-                                            <div className="absolute -left-3 top-20 flex flex-col gap-10">
-                                                {node.data.sockets.filter(s => s.side === 'left').map(s => (
-                                                    <Socket 
-                                                        key={s.id} 
-                                                        socket={s} 
-                                                        nodeId={node.id}
-                                                        onPointerDown={(e) => handleSocketPointerDown(e, node.id, s.id, s.side, s.accepts)} 
-                                                    />
+                                            <div className="absolute -left-3 top-24 flex flex-col gap-8">
+                                                {node.data.sockets.filter(s => s.side === 'left').map((s, i) => (
+                                                    <Socket key={s.id} socket={s} nodeId={node.id} onPointerDown={(e) => handleSocketPointerDown(e, node.id, s.id, s.side, s.accepts)} />
                                                 ))}
                                             </div>
-                                            {/* Right Sockets */}
-                                            <div className="absolute -right-3 top-20 flex flex-col gap-10">
-                                                {node.data.sockets.filter(s => s.side === 'right').map(s => (
-                                                    <Socket 
-                                                        key={s.id} 
-                                                        socket={s} 
-                                                        nodeId={node.id}
-                                                        align="right"
-                                                        onPointerDown={(e) => handleSocketPointerDown(e, node.id, s.id, s.side, s.accepts)} 
-                                                    />
+                                            <div className="absolute -right-3 top-24 flex flex-col gap-8">
+                                                {node.data.sockets.filter(s => s.side === 'right').map((s, i) => (
+                                                    <Socket key={s.id} socket={s} nodeId={node.id} align="right" onPointerDown={(e) => handleSocketPointerDown(e, node.id, s.id, s.side, s.accepts)} />
                                                 ))}
                                             </div>
-                                            {/* Bottom Sockets */}
                                             <div className="absolute bottom-0 w-full flex justify-center pb-2">
-                                                {node.data.sockets.filter(s => s.side === 'bottom').map(s => (
-                                                    <Socket 
-                                                        key={s.id} 
-                                                        socket={s} 
-                                                        nodeId={node.id}
-                                                        labelBottom
-                                                        onPointerDown={(e) => handleSocketPointerDown(e, node.id, s.id, s.side, s.accepts)} 
-                                                    />
+                                                {node.data.sockets.filter(s => s.side === 'bottom').map((s, i) => (
+                                                    <Socket key={s.id} socket={s} nodeId={node.id} labelBottom onPointerDown={(e) => handleSocketPointerDown(e, node.id, s.id, s.side, s.accepts)} />
                                                 ))}
                                             </div>
                                         </>
                                     )}
 
-                                    {/* Input Socket (For Items) */}
+                                    {/* Item Input Socket */}
                                     {!node.isRoot && (
                                         <div 
-                                            className="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-slate-700 border-2 border-slate-500 hover:border-white z-50 cursor-crosshair flex items-center justify-center"
+                                            className="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-slate-700 border-2 border-slate-500 hover:border-white z-50 cursor-crosshair flex items-center justify-center shadow-lg"
                                             onPointerUp={(e) => handleSocketPointerUp(e, node.id, "input_main", node.data.type)}
                                         >
                                             <div className="w-2 h-2 bg-slate-400 rounded-full pointer-events-none"></div>
                                         </div>
                                     )}
 
-                                    {/* Delete Btn */}
                                     {!node.isRoot && (
                                         <button 
-                                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-600 text-white rounded-full text-xs shadow-lg hover:bg-red-500 z-50"
+                                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-600/80 text-white rounded-full text-xs shadow-lg hover:bg-red-500 z-50 transition"
                                             onPointerDown={(e) => { e.stopPropagation(); setNodes(prev => prev.filter(n => n.id !== node.id)); }}
                                         >
                                             <i className="fas fa-times"></i>
@@ -445,27 +441,27 @@
                             ))}
                         </div>
                         
-                        {/* Zoom Controls */}
+                        {/* Controls */}
                         <div className="absolute bottom-5 right-5 flex gap-2">
-                            <button onClick={() => setZoom(z => Math.min(z + 0.1, 2))} className="w-10 h-10 bg-slate-800 text-white rounded border border-slate-700 shadow-lg">+</button>
-                            <button onClick={() => setZoom(z => Math.max(z - 0.1, 0.5))} className="w-10 h-10 bg-slate-800 text-white rounded border border-slate-700 shadow-lg">-</button>
+                            <button onClick={() => setZoom(z => Math.min(z + 0.1, 2))} className="w-10 h-10 bg-slate-800 text-white rounded border border-slate-700 shadow-lg hover:bg-slate-700 active:bg-slate-600">+</button>
+                            <button onClick={() => setZoom(z => Math.max(z - 0.1, 0.5))} className="w-10 h-10 bg-slate-800 text-white rounded border border-slate-700 shadow-lg hover:bg-slate-700 active:bg-slate-600">-</button>
                         </div>
                     </div>
                 </div>
             );
         };
 
-        // Socket Sub-Component
         const Socket = ({ socket, nodeId, align = 'left', labelBottom = false, onPointerDown }) => {
             return (
                 <div className="relative group flex items-center" style={{ flexDirection: align === 'right' ? 'row-reverse' : 'row' }}>
                     <div 
-                        className="w-6 h-6 rounded-full bg-slate-800 border-2 border-cyan-600 socket cursor-crosshair shadow-lg shadow-cyan-900/50 z-50"
+                        className="w-6 h-6 rounded-full bg-slate-900 border-2 border-cyan-600/60 socket cursor-crosshair shadow-lg shadow-cyan-900/50 z-50 hover:border-white hover:scale-110"
                         onPointerDown={onPointerDown}
                         title={socket.label}
-                    ></div>
-                    {/* Tooltip Label */}
-                    <div className={`absolute ${labelBottom ? 'top-8 left-1/2 -translate-x-1/2' : (align === 'right' ? 'right-8' : 'left-8')} bg-black/80 text-cyan-400 text-[10px] uppercase font-bold px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none`}>
+                    >
+                         <div className="w-full h-full rounded-full bg-cyan-500/10"></div>
+                    </div>
+                    <div className={`absolute ${labelBottom ? 'top-8 left-1/2 -translate-x-1/2' : (align === 'right' ? 'right-8' : 'left-8')} bg-black/80 backdrop-blur text-cyan-400 text-[9px] uppercase font-bold px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none border border-cyan-500/30`}>
                         {socket.label}
                     </div>
                 </div>
