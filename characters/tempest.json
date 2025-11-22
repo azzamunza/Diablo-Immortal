@@ -1,182 +1,104 @@
 {
-  "metadata": {
-    "class": "Tempest",
-    "version": "2.5.0",
-    "lastUpdated": "2025-11-22"
+  "class_info": {
+    "name": "Tempest",
+    "description": "A master of wind and water, using dual blades and zephyrs.",
+    "base_hp": 10000,
+    "base_damage": 1200
   },
-  "compatibility_rules": {
-    "core": ["slot_head", "slot_chest", "slot_shoulders", "slot_legs", "slot_mainhand", "slot_offhand", "slot_skill", "slot_paragon"],
-    "slot_head": ["item_head"],
-    "slot_chest": ["item_chest"],
-    "slot_shoulders": ["item_shoulders"],
-    "slot_legs": ["item_legs"],
-    "slot_mainhand": ["item_mainhand"],
-    "slot_offhand": ["item_offhand"],
-    "slot_skill": ["skill_active", "skill_passive"],
-    "slot_paragon": ["paragon_tree"],
-    "item_head": ["gem_legendary", "gem_normal", "rune", "curse", "reforge"],
-    "item_chest": ["gem_legendary", "gem_normal", "rune", "curse", "reforge"],
-    "item_shoulders": ["gem_legendary", "gem_normal", "rune", "curse", "reforge"],
-    "item_legs": ["gem_legendary", "gem_normal", "rune", "curse", "reforge"],
-    "item_mainhand": ["gem_legendary", "gem_normal", "rune", "curse", "reforge"],
-    "item_offhand": ["gem_legendary", "gem_normal", "rune", "curse", "reforge"],
-    "paragon_tree": ["paragon_node"]
+  "root_node_config": {
+    "inputs": [],
+    "outputs": [
+      { "id": "sock_head", "label": "Head", "accepts": ["item_head"], "side": "left" },
+      { "id": "sock_chest", "label": "Chest", "accepts": ["item_chest"], "side": "left" },
+      { "id": "sock_shoulders", "label": "Shoulders", "accepts": ["item_shoulders"], "side": "left" },
+      { "id": "sock_legs", "label": "Legs", "accepts": ["item_legs"], "side": "left" },
+      { "id": "sock_mh", "label": "Main Hand", "accepts": ["item_weapon"], "side": "left" },
+      { "id": "sock_oh", "label": "Off Hand", "accepts": ["item_weapon"], "side": "left" },
+      { "id": "sock_skill_prim", "label": "Primary Skill", "accepts": ["skill_primary"], "side": "right" },
+      { "id": "sock_skill_1", "label": "Skill 1", "accepts": ["skill_active"], "side": "right" },
+      { "id": "sock_skill_2", "label": "Skill 2", "accepts": ["skill_active"], "side": "right" },
+      { "id": "sock_skill_3", "label": "Skill 3", "accepts": ["skill_active"], "side": "right" },
+      { "id": "sock_skill_4", "label": "Skill 4", "accepts": ["skill_active"], "side": "right" },
+      { "id": "sock_paragon", "label": "Paragon Tree", "accepts": ["paragon_tree"], "side": "bottom" }
+    ]
   },
   "library": [
     {
-      "id": "skill_water_edge",
+      "id": "helm_leeward",
+      "name": "Leeward Appearance",
+      "type": "item_head",
+      "rarity": "legendary",
+      "icon": "fa-helmet-safety",
+      "stats": { "CR": 1850, "Resonance": 150 },
+      "effect": "Wind Edge also increases attack speed by 30% for 3s.",
+      "sockets": [{ "id": "s_gem", "label": "Gem", "accepts": ["gem_legendary"] }]
+    },
+    {
+      "id": "chest_storms",
+      "name": "Storm's Mantle",
+      "type": "item_chest",
+      "rarity": "legendary",
+      "icon": "fa-shirt",
+      "stats": { "CR": 1850, "Resonance": 150 },
+      "effect": "Vortex now creates a lightning storm following you.",
+      "sockets": [{ "id": "s_gem", "label": "Gem", "accepts": ["gem_legendary"] }]
+    },
+    {
+      "id": "wep_edge",
       "name": "Water Edge",
-      "type": "skill_active",
-      "icon": "fa-water",
-      "properties": { "damage": "100%", "cooldown": 0, "element": "Water", "description": "Primary Attack: Unleash water whips dealing sweeping damage." }
+      "type": "item_weapon",
+      "rarity": "legendary",
+      "icon": "fa-khanda",
+      "stats": { "CR": 1900, "Damage": 8500 },
+      "effect": "Water Edge attacks send piercing waves forward.",
+      "sockets": [{ "id": "s_gem", "label": "Gem", "accepts": ["gem_legendary"] }]
     },
     {
       "id": "skill_wind_edge",
       "name": "Wind Edge",
-      "type": "skill_active",
+      "type": "skill_primary",
+      "rarity": "common",
       "icon": "fa-wind",
-      "properties": { "damage": "105%", "cooldown": 0, "element": "Wind", "description": "Primary Attack: Rapid slashes with wind blades." }
+      "stats": { "Type": "Primary", "Element": "Wind" },
+      "effect": "Rapid slashes with wind blades."
     },
     {
       "id": "skill_rolling_surf",
       "name": "Rolling Surf",
       "type": "skill_active",
+      "rarity": "common",
       "icon": "fa-water",
-      "properties": { "damage": "150%", "cooldown": 8, "element": "Water", "description": "Ride a wave, increasing movement speed and modifying attacks." }
+      "stats": { "Cooldown": "8s", "Element": "Water" },
+      "effect": "Ride a wave, increasing movement speed."
     },
     {
-      "id": "skill_flowing_strike",
-      "name": "Flowing Strike",
-      "type": "skill_active",
-      "icon": "fa-khanda",
-      "properties": { "damage": "180%", "cooldown": 10, "element": "Water", "description": "Dash forward, dealing damage to enemies in path." }
-    },
-    {
-      "id": "skill_zephyr_surge",
+      "id": "skill_zephyr",
       "name": "Zephyr Surge",
       "type": "skill_active",
+      "rarity": "common",
       "icon": "fa-bolt",
-      "properties": { "damage": "300%", "cooldown": 20, "element": "Wind", "description": "Become untargetable and slash enemies nearby." }
-    },
-    {
-      "id": "item_head_leeward",
-      "name": "Leeward Appearance",
-      "type": "item_head",
-      "rarity": "legendary",
-      "properties": { "cr": 1800, "essence": "Wind Edge also increases attack speed by 30% for 3s.", "attribute_base": "Willpower" }
-    },
-    {
-      "id": "item_head_crown_tides",
-      "name": "Crown of Tides",
-      "type": "item_head",
-      "rarity": "legendary",
-      "properties": { "cr": 1800, "essence": "Rolling Surf duration increased by 30%.", "attribute_base": "Fortitude" }
-    },
-    {
-      "id": "item_chest_storms_mantle",
-      "name": "Storm's Mantle",
-      "type": "item_chest",
-      "rarity": "legendary",
-      "properties": { "cr": 1800, "essence": "Vortex now creates a lightning storm that follows you.", "attribute_base": "Vitality" }
-    },
-    {
-      "id": "item_shoulders_gull_wing",
-      "name": "Gull Wing Pauldrons",
-      "type": "item_shoulders",
-      "rarity": "legendary",
-      "properties": { "cr": 1800, "essence": "Flowing Strike grants a shield absorbing damage.", "attribute_base": "Strength" }
-    },
-    {
-      "id": "item_legs_tide_walkers",
-      "name": "Tide Walkers",
-      "type": "item_legs",
-      "rarity": "legendary",
-      "properties": { "cr": 1800, "essence": "Rolling Surf leaves a trail of damaging water.", "attribute_base": "Vitality" }
-    },
-    {
-      "id": "item_mh_wave_cutter",
-      "name": "Wave Cutter",
-      "type": "item_mainhand",
-      "rarity": "legendary",
-      "properties": { "cr": 1800, "essence": "Water Edge attacks send piercing waves forward.", "attribute_base": "Strength" }
-    },
-    {
-      "id": "item_oh_wind_shear",
-      "name": "Wind Shear",
-      "type": "item_offhand",
-      "rarity": "legendary",
-      "properties": { "cr": 1800, "essence": "Zephyr Surge cooldown reduced by 15%.", "attribute_base": "Fortitude" }
-    },
-    {
-      "id": "item_mh_ix_abyssal",
-      "name": "Abyssal Edge (Inf IX)",
-      "type": "item_mainhand",
-      "rarity": "legendary",
-      "properties": { "cr": 2100, "essence": "Flowing Strike now causes enemies to bleed for massive damage.", "attribute_base": "Strength" }
+      "stats": { "Cooldown": "12s", "Element": "Wind" },
+      "effect": "Become untargetable and slash enemies."
     },
     {
       "id": "gem_bsj",
       "name": "Blood-Soaked Jade",
       "type": "gem_legendary",
       "rarity": "legendary",
-      "properties": { "stars": 5, "effect": "Increases all damage you deal by up to 8% and movement speed by 10%." }
+      "icon": "fa-gem",
+      "stats": { "Stars": "5/5" },
+      "effect": "Increases damage by 8% and move speed by 10%."
     },
     {
-      "id": "gem_seeping",
-      "name": "Seeping Bile",
-      "type": "gem_legendary",
-      "rarity": "legendary",
-      "properties": { "stars": 5, "effect": "Your attacks have a 4% chance to poison enemies." }
-    },
-    {
-      "id": "gem_ruby_7",
-      "name": "Ruby (Rank 7)",
-      "type": "gem_normal",
-      "rarity": "common",
-      "properties": { "stat": "Life", "value": "+1200" }
-    },
-    {
-      "id": "gem_tourmaline_7",
-      "name": "Tourmaline (Rank 7)",
-      "type": "gem_normal",
-      "rarity": "common",
-      "properties": { "stat": "Damage", "value": "+120" }
-    },
-    {
-      "id": "rune_lit",
-      "name": "Rune: Lit",
-      "type": "rune",
-      "rarity": "rare",
-      "properties": { "effect": "Increases Primary Attack Damage by 4%." }
-    },
-    {
-      "id": "curse_lashed",
-      "name": "Cursed: Lashed",
-      "type": "curse",
-      "rarity": "magic",
-      "properties": { "trigger": "Attack", "effect": "Summon a lasher that attacks enemies." }
-    },
-    {
-      "id": "set_vithu_neck",
-      "name": "Awakener's Urge",
-      "type": "item_head", 
-      "slot_override": "secondary",
-      "rarity": "set",
-      "properties": { "set": "Vithu's Urges", "bonus_2pc": "Beneficial effects +30%", "cr": 1700 }
-    },
-    {
-      "id": "para_tree_weaver",
-      "name": "Tree: Weaver",
+      "id": "para_weaver",
+      "name": "Weaver Tree",
       "type": "paragon_tree",
-      "rarity": "common",
-      "properties": { "focus": "Hybrid Damage" }
-    },
-    {
-      "id": "para_node_damage",
-      "name": "Node: Damage",
-      "type": "paragon_node",
-      "rarity": "common",
-      "properties": { "stat": "Damage", "value": "+50" }
+      "rarity": "rare",
+      "icon": "fa-sitemap",
+      "stats": { "Nodes": 85 },
+      "effect": "Focuses on hybrid damage and evasion."
     }
   ]
 }
+
+
